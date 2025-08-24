@@ -4,7 +4,6 @@ whitenoise
 djangorestframework>=3.15
 psycopg2-binary>=2.9
 python-decouple>=3.8
-drf-spectacular>=0.28.0
-drf-spectacular-sidecar>=2025.8.1
 requests>=2.32
 django-cors-headers>=4.3
+drf-yasg>=1.21.10
