@@ -41,8 +41,6 @@ CSRF_TRUSTED_ORIGINS = [
 # Application definition
 
 INSTALLED_APPS = [
-    "accounts",
-    "payments",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -51,9 +49,8 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "drf_yasg",
     "rest_framework",
-    "rest_framework_simplejwt",
-    "rest_framework_simplejwt.token_blacklist",
     "corsheaders",
+    "payments",
 ]
 
 
@@ -189,65 +186,8 @@ DATABASES = {
         "PASSWORD": config("DB_PASSWORD"),
         "HOST": config("DB_HOST"),
         "PORT": config("DB_PORT", default="6543"),
-        "TEST": {
-            "USER": config("DB_USER_TEST"),
-        },
     }
 }
-
-# Admin token for /api/admin/audit
-ADMIN_API_TOKEN = config("ADMIN_API_TOKEN", default="borderinter")
-
-# Optional fixed-rate override (for offline demos). Example: "USD->NGN:1576.5,EUR->USD:1.08"
-FIXED_RATE_OVERRIDES = config("FIXED_RATE_OVERRIDES", default="")
-
-
-# === PATCH: Security, CORS, DRF & JWT (added by patch) ===
-import os
-from datetime import timedelta
-
-CORS_ALLOWED_ORIGINS = [
-    o.strip() for o in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",") if o.strip()
-]
-CORS_ALLOW_CREDENTIALS = os.getenv("CORS_ALLOW_CREDENTIALS", "True") == "True"
-CSRF_TRUSTED_ORIGINS = [
-    o.strip() for o in os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",") if o.strip()
-]
-
-SECURE_SSL_REDIRECT = os.getenv("SECURE_SSL_REDIRECT", "False") == "True"
-SESSION_COOKIE_SECURE = SECURE_SSL_REDIRECT
-CSRF_COOKIE_SECURE = SECURE_SSL_REDIRECT
-SECURE_HSTS_SECONDS = int(os.getenv("SECURE_HSTS_SECONDS", "0"))
-SECURE_BROWSER_XSS_FILTER = True
-SECURE_CONTENT_TYPE_NOSNIFF = True
-X_FRAME_OPTIONS = "DENY"
-
-REST_FRAMEWORK = globals().get("REST_FRAMEWORK", {})
-REST_FRAMEWORK.update(
-    {
-        "DEFAULT_AUTHENTICATION_CLASSES": (
-            "rest_framework_simplejwt.authentication.JWTAuthentication",
-        ),
-        "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
-    }
-)
-
-AUTH_USER_MODEL = "accounts.User"
-
-SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(
-        minutes=int(os.getenv("ACCESS_TOKEN_MINUTES", "30"))
-    ),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=int(os.getenv("REFRESH_TOKEN_DAYS", "7"))),
-    "ROTATE_REFRESH_TOKENS": False,
-    "BLACKLIST_AFTER_ROTATION": True,
-    "AUTH_HEADER_TYPES": ("Bearer",),
-}
-# === end patch ===
-config("ADMIN_API_TOKEN", default="borderinter")
-
-# Admin token for /api/admin/audit
-ADMIN_API_TOKEN = config("ADMIN_API_TOKEN", default="borderinter")
 
 # Admin token for /api/admin/audit
 ADMIN_API_TOKEN = config("ADMIN_API_TOKEN", default="borderinter")

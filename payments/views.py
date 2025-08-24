@@ -5,12 +5,15 @@ from django.shortcuts import get_object_or_404
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
-from .models import User, Wallet, WalletBalance, Transaction, AuditLog
+from .models import Wallet, WalletBalance, Transaction, AuditLog
 from .serializers import (
     UserCreateSer, WalletDetailSer, DepositSer, SwapSer, TransferSer
 )
 from .services import cross_rate, CURRENCY_MAP, to_usd, get_rate
 from drf_spectacular.utils import extend_schema
+from django.contrib.auth import get_user_model
+
+User = get_user_model()  # ✅ now uses accounts.User
 
 @extend_schema(
     summary="Create a new user",

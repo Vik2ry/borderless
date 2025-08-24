@@ -1,0 +1,6 @@
+# Example: in any view where you need a rate
+from services.fx import FXService, FXServiceError
+
+def get_rate_for_pair(src: str, dst: str) -> float:
+    fx = FXService()
+    return fx.get_rate(src, dst)

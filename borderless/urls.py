@@ -17,7 +17,6 @@ schema_view = get_schema_view(
 )
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("api-auth/", include("rest_framework.urls")),
    # ✅ JSON schema (swagger UI will use this)
     path("api/schema.json", schema_view.without_ui(cache_timeout=0), name="schema-json"),
 
@@ -28,6 +27,7 @@ urlpatterns = [
     re_path(r"^api/redoc/$", schema_view.with_ui("redoc", cache_timeout=0), name="schema-redoc"),
     # Core endpoints
     path("api/users", views.create_user),
+    path("auth/", include("accounts.urls")),
     path("api/wallets", views.create_wallet),
     path("api/wallets/<uuid:wallet_id>", views.get_wallet),
     path("api/wallets/<uuid:wallet_id>/transactions", views.wallet_transactions),

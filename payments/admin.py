@@ -1,5 +1,8 @@
 from django.contrib import admin
-from .models import User, Wallet, WalletBalance, Transaction, RateCache, AuditLog, IdempotencyRecord
+from .models import Wallet, WalletBalance, Transaction, RateCache, AuditLog, IdempotencyRecord
+from django.contrib.auth import get_user_model
+
+User = get_user_model()  # ✅ now uses accounts.User
 
 admin.site.register(User)
 admin.site.register(Wallet)
