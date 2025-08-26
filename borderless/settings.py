@@ -188,18 +188,15 @@ FIXED_RATE_OVERRIDES = config("FIXED_RATE_OVERRIDES", default="")
 import os
 from datetime import timedelta
 
-CORS_ALLOWED_ORIGINS = [
-    o.strip() for o in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",") if o.strip()
-]
-CORS_ALLOW_CREDENTIALS = os.getenv("CORS_ALLOW_CREDENTIALS", "True") == "True"
-CSRF_TRUSTED_ORIGINS = [
-    o.strip() for o in os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",") if o.strip()
-]
+CORS_ALLOWED_ORIGINS = config("CORS_ALLOWED_ORIGINS", default="").split(",")
 
-SECURE_SSL_REDIRECT = os.getenv("SECURE_SSL_REDIRECT", "False") == "True"
+CORS_ALLOW_CREDENTIALS = config("CORS_ALLOW_CREDENTIALS", default="True") == "True"
+CSRF_TRUSTED_ORIGINS = config("CSRF_TRUSTED_ORIGINS", default="").split(",")
+
+SECURE_SSL_REDIRECT = config("SECURE_SSL_REDIRECT", default="False") == "True"
 SESSION_COOKIE_SECURE = SECURE_SSL_REDIRECT
 CSRF_COOKIE_SECURE = SECURE_SSL_REDIRECT
-SECURE_HSTS_SECONDS = int(os.getenv("SECURE_HSTS_SECONDS", "0"))
+SECURE_HSTS_SECONDS = int(config("SECURE_HSTS_SECONDS", default="0"))
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
@@ -218,9 +215,9 @@ AUTH_USER_MODEL = "accounts.User"
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(
-        minutes=int(os.getenv("ACCESS_TOKEN_MINUTES", "30"))
+        minutes=int(config("ACCESS_TOKEN_MINUTES", default="30"))
     ),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=int(os.getenv("REFRESH_TOKEN_DAYS", "7"))),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=int(config("REFRESH_TOKEN_DAYS", default="7"))),
     "ROTATE_REFRESH_TOKENS": False,
     "BLACKLIST_AFTER_ROTATION": True,
     "AUTH_HEADER_TYPES": ("Bearer",),
@@ -236,3 +233,5 @@ ADMIN_API_TOKEN = config("ADMIN_API_TOKEN", default="borderinter")
 
 # Optional fixed-rate override (for offline demos). Example: "USD->NGN:1576.5,EUR->USD:1.08"
 FIXED_RATE_OVERRIDES = config("FIXED_RATE_OVERRIDES", default="")
+SECRET_KEY = config("SECRET_KEY")
+DEBUG = config("DEBUG", default=False, cast=bool)
