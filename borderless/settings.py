@@ -188,10 +188,18 @@ FIXED_RATE_OVERRIDES = config("FIXED_RATE_OVERRIDES", default="")
 import os
 from datetime import timedelta
 
-CORS_ALLOWED_ORIGINS = config("CORS_ALLOWED_ORIGINS", default="").split(",")
+def split_env_list(value):
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+CORS_ALLOWED_ORIGINS = split_env_list(
+    config("CORS_ALLOWED_ORIGINS", default="https://localhost:3000")
+)
+
+CSRF_TRUSTED_ORIGINS = split_env_list(
+    config("CSRF_TRUSTED_ORIGINS", default="https://localhost:3000")
+)
 
 CORS_ALLOW_CREDENTIALS = config("CORS_ALLOW_CREDENTIALS", default="True") == "True"
-CSRF_TRUSTED_ORIGINS = config("CSRF_TRUSTED_ORIGINS", default="").split(",")
 
 SECURE_SSL_REDIRECT = config("SECURE_SSL_REDIRECT", default="False") == "True"
 SESSION_COOKIE_SECURE = SECURE_SSL_REDIRECT
