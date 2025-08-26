@@ -9,6 +9,9 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from .serializers import RegisterSerializer, UserSerializer
 
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
+
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     serializer_class = RegisterSerializer
@@ -30,18 +33,6 @@ class MeView(APIView):
         serializer.save()
         return Response(serializer.data)
 
-class ChangePasswordView(APIView):
-    permission_classes = [IsAuthenticated]
-    def post(self, request):
-        old = request.data.get('old_password')
-        new = request.data.get('new_password')
-        if not request.user.check_password(old):
-            return Response({'detail':'Old password invalid.'}, status=400)
-        validate_password(new, user=request.user)
-        request.user.set_password(new)
-        request.user.save()
-        return Response({'detail':'Password changed.'})
-
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
     def post(self, request):
@@ -54,3 +45,124 @@ class LogoutView(APIView):
         except Exception:
             return Response({'detail':'invalid refresh token'}, status=400)
         return Response({'detail':'Logged out'})
+
+@swagger_auto_schema(
+    operation_summary="Register a new user",
+    operation_description="Registers a new user with a unique handle and password.",
+    request_body=RegisterSerializer,
+    responses={
+        201: RegisterSerializer,
+        400: "Bad Request - Invalid data"
+    }
+)
+class RegisterView(generics.CreateAPIView):
+    queryset = User.objects.all()
+    serializer_class = RegisterSerializer
+    permission_classes = [permissions.AllowAny]
+
+@swagger_auto_schema(
+    operation_summary="Obtain JWT access and refresh tokens",
+    operation_description="Authenticates a user and provides JWT access and refresh tokens.",
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            'username': openapi.Schema(type=openapi.TYPE_STRING),
+            'password': openapi.Schema(type=openapi.TYPE_STRING),
+        },
+        required=['username', 'password']
+    ),
+    responses={
+        200: openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'access': openapi.Schema(type=openapi.TYPE_STRING),
+                'refresh': openapi.Schema(type=openapi.TYPE_STRING),
+            }
+        ),
+        401: "Unauthorized - Invalid credentials"
+    }
+)
+class LoginView(TokenObtainPairView):
+    permission_classes = [permissions.AllowAny]
+
+@swagger_auto_schema(
+    operation_summary="Refresh JWT access token",
+    operation_description="Refreshes an expired JWT access token using a refresh token.",
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            'refresh': openapi.Schema(type=openapi.TYPE_STRING),
+        },
+        required=['refresh']
+    ),
+    responses={
+        200: openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'access': openapi.Schema(type=openapi.TYPE_STRING),
+            }
+        ),
+        401: "Unauthorized - Invalid refresh token"
+    }
+)
+class RefreshView(TokenRefreshView):
+    permission_classes = [permissions.AllowAny]
+
+@swagger_auto_schema(
+    operation_summary="Get current user details",
+    operation_description="Retrieves details of the currently authenticated user.",
+    responses={
+        200: UserSerializer,
+        401: "Unauthorized - Authentication credentials were not provided"
+    }
+)
+class MeView(APIView):
+    permission_classes = [IsAuthenticated]
+    def get(self, request):
+        return Response(UserSerializer(request.user).data)
+    
+    @swagger_auto_schema(
+        operation_summary="Update current user details",
+        operation_description="Partially updates details of the currently authenticated user.",
+        request_body=UserSerializer,
+        responses={
+            200: UserSerializer,
+            400: "Bad Request - Invalid data",
+            401: "Unauthorized - Authentication credentials were not provided"
+        }
+    )
+    def patch(self, request):
+        serializer = UserSerializer(request.user, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+@swagger_auto_schema(
+    operation_summary="Change user password",
+    operation_description="Allows an authenticated user to change their password by providing the old and new passwords.",
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            'old_password': openapi.Schema(type=openapi.TYPE_STRING),
+            'new_password': openapi.Schema(type=openapi.TYPE_STRING),
+        },
+        required=['old_password', 'new_password']
+    ),
+    responses={
+        200: "Password changed successfully",
+        400: "Bad Request - Invalid data or old password incorrect",
+        401: "Unauthorized - Authentication credentials were not provided"
+    }
+)
+
+class ChangePasswordView(APIView):
+    permission_classes = [IsAuthenticated]
+    def post(self, request):
+        old = request.data.get('old_password')
+        new = request.data.get('new_password')
+        if not request.user.check_password(old):
+            return Response({'detail':'Old password invalid.'}, status=400)
+        validate_password(new, user=request.user)
+        request.user.set_password(new)
+        request.user.save()
+        return Response({'detail':'Password changed.'})

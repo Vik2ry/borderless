@@ -48,18 +48,6 @@ def create_wallet(request):
     return Response({'id': str(wallet.id), 'user_id': str(user.id)}, status=201)
 
 @api_view(['GET'])
-def get_wallet(request, wallet_id):
-    wallet = get_object_or_404(Wallet, id=wallet_id)
-    balances = WalletBalance.objects.filter(wallet=wallet)
-    out = []
-    total_usd = Decimal('0')
-    for b in balances:
-        out.append({'currency': b.currency, 'amount': b.amount})
-        total_usd += to_usd(b.amount, b.currency)
-    data = {'id': str(wallet.id), 'balances': out, 'total_usd': total_usd.quantize(Decimal('0.01'))}
-    return Response(WalletDetailSer(data).data)
-
-@api_view(['GET'])
 def wallet_transactions(request, wallet_id):
     limit = int(request.GET.get('limit', 100))
     qs = Transaction.objects.filter(wallet_id=wallet_id).order_by('-created_at')[:limit]
@@ -75,49 +63,6 @@ def wallet_transactions(request, wallet_id):
         'created_at': t.created_at.isoformat()
     } for t in qs]
     return Response(data)
-
-@api_view(['POST'])
-def deposit(request, wallet_id):
-    ser = DepositSer(data=request.data); ser.is_valid(raise_exception=True)
-    currency = ser.validated_data['currency']
-    amount = ser.validated_data['amount']
-    wallet = get_object_or_404(Wallet, id=wallet_id)
-    with dbtx.atomic():
-        bal = _get_balance(wallet, currency)
-        bal.amount = bal.amount + amount
-        bal.save(update_fields=['amount'])
-        Transaction.objects.create(wallet=wallet, type='DEPOSIT',
-                                   to_currency=currency, to_amount=amount,
-                                   idempotency_key=request.headers.get('Idempotency-Key'))
-    return Response({'success': True}, status=201)
-
-@api_view(['POST'])
-def swap(request, wallet_id):
-    ser = SwapSer(data=request.data); ser.is_valid(raise_exception=True)
-    fcur = ser.validated_data['from_currency']
-    tcur = ser.validated_data['to_currency']
-    amt = ser.validated_data['amount']
-    preview = ser.validated_data['preview']
-    if fcur == tcur: return Response({'detail':'Currencies must differ.'}, status=400)
-    wallet = get_object_or_404(Wallet, id=wallet_id)
-
-    to_amt, rate = cross_rate(amt, fcur, tcur)
-    if preview:
-        return Response({'preview': True, 'to_amount': str(to_amt.quantize(Decimal('0.01'))), 'rate': str(rate)})
-
-    with dbtx.atomic():
-        from_bal = _get_balance(wallet, fcur)
-        if from_bal.amount < amt:
-            return Response({'detail':'Insufficient balance.'}, status=400)
-        to_bal = _get_balance(wallet, tcur)
-        from_bal.amount -= amt
-        to_bal.amount += to_amt
-        from_bal.save(update_fields=['amount'])
-        to_bal.save(update_fields=['amount'])
-        Transaction.objects.create(wallet=wallet, type='SWAP',
-            from_currency=fcur, to_currency=tcur, from_amount=amt, to_amount=to_amt, rate=rate,
-            idempotency_key=request.headers.get('Idempotency-Key'))
-    return Response({'success': True, 'to_amount': str(to_amt.quantize(Decimal('0.01'))), 'rate': str(rate)}, status=201)
 
 @api_view(['POST'])
 def transfer(request):
@@ -231,3 +176,104 @@ def fx_assistant_explain(request):
            f"So you would receive approximately {to_amount.quantize(Decimal('0.01'))} {to}. "\
            f"Rates are cached for 10 minutes to ensure responsiveness."
     return Response({"from": frm, "to": to, "amount": amt, "rate": str(rate), "estimated_to_amount": str(to_amount.quantize(Decimal('0.01'))), "explanation": note})
+@extend_schema(
+    summary="Create a new user",
+    description="Registers a user (email or phone handle) and creates their primary wallet.",
+    request=UserCreateSer,
+    responses={201: UserCreateSer},
+)
+@api_view(['POST'])
+def create_user(request):
+    ser = UserCreateSer(data=request.data)
+    ser.is_valid(raise_exception=True)
+    user, _ = User.objects.get_or_create(handle=ser.validated_data['handle'])
+    wallet, _ = Wallet.objects.get_or_create(user=user)
+    for c in CURRENCY_MAP.keys():
+        WalletBalance.objects.get_or_create(wallet=wallet, currency=c, defaults={'amount':0})
+    return Response({'id': str(user.id), 'handle': user.handle, 'wallet_id': str(wallet.id)}, status=201)
+
+@extend_schema(
+    summary="Create a new wallet for an existing user",
+    description="Creates a new wallet for a specified user.",
+    request=None, # Define a serializer if you expect a specific request body for user_id
+    responses={201: {'description': 'Wallet created successfully', 'schema': WalletDetailSer}},
+)
+@api_view(['POST'])
+def create_wallet(request):
+    user_id = request.data.get('user_id')
+    user = get_object_or_404(User, id=user_id)
+    wallet = Wallet.objects.create(user=user)
+    for c in CURRENCY_MAP.keys():
+        WalletBalance.objects.create(wallet=wallet, currency=c, amount=0)
+    return Response({'id': str(wallet.id), 'user_id': str(user.id)}, status=201)
+
+@extend_schema(
+    summary="Get wallet details",
+    description="Retrieves the details and balances of a specific wallet.",
+    responses={200: WalletDetailSer},
+)
+@api_view(['GET'])
+def get_wallet(request, wallet_id):
+    wallet = get_object_or_404(Wallet, id=wallet_id)
+    balances = WalletBalance.objects.filter(wallet=wallet)
+    out = []
+    total_usd = Decimal('0')
+    for b in balances:
+        out.append({'currency': b.currency, 'amount': b.amount})
+        total_usd += to_usd(b.amount, b.currency)
+    data = {'id': str(wallet.id), 'balances': out, 'total_usd': total_usd.quantize(Decimal('0.01'))}
+    return Response(WalletDetailSer(data).data)
+@extend_schema(
+    summary="Deposit funds into a wallet",
+    description="Deposits a specified amount of currency into the wallet.",
+    request=DepositSer,
+    responses={201: {'description': 'Deposit successful'}},
+)
+
+@api_view(['POST'])
+def deposit(request, wallet_id):
+    ser = DepositSer(data=request.data); ser.is_valid(raise_exception=True)
+    currency = ser.validated_data['currency']
+    amount = ser.validated_data['amount']
+    wallet = get_object_or_404(Wallet, id=wallet_id)
+    with dbtx.atomic():
+        bal = _get_balance(wallet, currency)
+        bal.amount = bal.amount + amount
+        bal.save(update_fields=['amount'])
+        Transaction.objects.create(wallet=wallet, type='DEPOSIT',
+                                   to_currency=currency, to_amount=amount,
+                                   idempotency_key=request.headers.get('Idempotency-Key'))
+    return Response({'success': True}, status=201)
+@extend_schema(
+    summary="Swap currencies within a wallet",
+    description="Swaps a specified amount from one currency to another within the same wallet.",
+    request=SwapSer,
+    responses={201: {'description': 'Swap successful', 'schema': SwapSer}},
+)
+@api_view(['POST'])
+def swap(request, wallet_id):
+    ser = SwapSer(data=request.data); ser.is_valid(raise_exception=True)
+    fcur = ser.validated_data['from_currency']
+    tcur = ser.validated_data['to_currency']
+    amt = ser.validated_data['amount']
+    preview = ser.validated_data['preview']
+    if fcur == tcur: return Response({'detail':'Currencies must differ.'}, status=400)
+    wallet = get_object_or_404(Wallet, id=wallet_id)
+
+    to_amt, rate = cross_rate(amt, fcur, tcur)
+    if preview:
+        return Response({'preview': True, 'to_amount': str(to_amt.quantize(Decimal('0.01'))), 'rate': str(rate)})
+
+    with dbtx.atomic():
+        from_bal = _get_balance(wallet, fcur)
+        if from_bal.amount < amt:
+            return Response({'detail':'Insufficient balance.'}, status=400)
+        to_bal = _get_balance(wallet, tcur)
+        from_bal.amount -= amt
+        to_bal.amount += to_amt
+        from_bal.save(update_fields=['amount'])
+        to_bal.save(update_fields=['amount'])
+        Transaction.objects.create(wallet=wallet, type='SWAP',
+            from_currency=fcur, to_currency=tcur, from_amount=amt, to_amount=to_amt, rate=rate,
+            idempotency_key=request.headers.get('Idempotency-Key'))
+    return Response({'success': True, 'to_amount': str(to_amt.quantize(Decimal('0.01'))), 'rate': str(rate)}, status=201)

@@ -7,7 +7,18 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ('handle', 'password')
+        fields = ['id', 'handle', 'email', 'password', 'date_joined']
+        read_only_fields = ['id', 'date_joined']
+        extra_kwargs = {'password': {'write_only': True}}
+    def validate_handle(self, value):
+        if User.objects.filter(handle=value).exists():
+            raise serializers.ValidationError("A user with that handle already exists.")
+        return value
+    def validate_email(self, value):
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("A user with that email already exists.")
+        return value
+
 
     def create(self, validated_data):
         password = validated_data.pop('password')
