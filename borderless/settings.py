@@ -20,24 +20,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-3dyfc=cu3enf%1l5z8--%vpd&mt5-rzpq=_zg92_#bj848pj&@"
-
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-
-ALLOWED_HOSTS = [
-    "unbordered-production.up.railway.app",
-    "127.0.0.1",
-    "localhost",
-]
-
-CSRF_TRUSTED_ORIGINS = [
-    "https://*.up.railway.app",
-    "https://*.vercel.app",  # if frontend will be on Vercel
-    "https://localhost:3000",  # local frontend dev
-]
-
 # Application definition
 
 INSTALLED_APPS = [
